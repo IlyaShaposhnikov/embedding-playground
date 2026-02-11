@@ -1,0 +1,4 @@
+gdown==5.2.0
+wget==3.2
+gensim==4.3.3
+numpy==1.26.4

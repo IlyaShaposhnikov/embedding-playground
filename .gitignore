@@ -1,0 +1,22 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.so
+.Python
+
+# Distributions
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# Large model files
+data/

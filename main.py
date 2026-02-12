@@ -4,10 +4,8 @@ Demonstrates loading Word2Vec / GloVe, nearest neighbors and word analogies.
 """
 
 from src.download import download_word2vec_model, download_glove_model
-from src.models import (
-    load_word2vec_model, load_glove_model,
-    nearest_neighbors, model_info, find_analogies
-)
+from src.models import load_word2vec_model, load_glove_model, model_info
+from src.queries import nearest_neighbors, find_analogies
 
 
 def main():

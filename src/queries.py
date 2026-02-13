@@ -2,7 +2,7 @@
 Query operations on embedding models: nearest neighbors and analogies.
 """
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from gensim.models import KeyedVectors
 
 
@@ -10,6 +10,7 @@ def nearest_neighbors(
     word: str,
     model: KeyedVectors,
     topn: int = 5,
+    model_name: Optional[str] = None,
 ) -> List[Tuple[str, float]]:
     """
     Find nearest neighbors of a word in the embedding space.
@@ -31,7 +32,8 @@ def nearest_neighbors(
         results = model.most_similar(positive=[word], topn=topn)
 
         # Pretty print
-        print(f"\nNEAREST NEIGHBORS: '{word}'")
+        model_label = f"{model_name}" if model_name else ""
+        print(f"\n{model_label} | NEAREST NEIGHBORS: '{word}'")
         print("─" * 60)
         print(f"{'#':>2s}  {'Word':<20s}  {'Similarity':>10s}")
         print("─" * 60)
@@ -52,6 +54,7 @@ def find_analogies(
     w3: str,
     model: KeyedVectors,
     topn: int = 3,
+    model_name: Optional[str] = None,
 ) -> List[Tuple[str, float]]:
     """Solve word analogy: w1 - w2 = ? - w3   (vector: w1 - w2 + w3)"""
     if model is None:
@@ -71,7 +74,8 @@ def find_analogies(
         )
 
         # Pretty output
-        print(f"\nANALOGY: {w1} - {w2} = ? - {w3}")
+        model_label = f"{model_name}" if model_name else ""
+        print(f"\n{model_label} | ANALOGY: {w1} - {w2} = ? - {w3}")
         print("─" * 60)
         print(f"{'#':>2s}  {'Solution':<20s}  {'Similarity':>10s}")
         print("─" * 60)

@@ -2,78 +2,49 @@
 Entry point for embedding-playground.
 Demonstrates loading Word2Vec / GloVe, nearest neighbors and word analogies.
 """
+import sys
 
+from src.cli import interactive_shell
 from src.download import download_word2vec_model, download_glove_model
-from src.models import load_word2vec_model, load_glove_model, model_info
-from src.queries import nearest_neighbors, find_analogies
+from src.models import load_word2vec_model, load_glove_model
 
 
 def main():
     print("=" * 60)
-    print("Embedding Playground — Models & Analogies")
+    print("Embedding Playground — Interactive Shell")
     print("=" * 60)
+    print("Models will be downloaded on first use if missing.\n")
 
-    # Word2Vec
-    print("\n[1] Word2Vec")
-    print("-" * 60)
-
-    # Ensure the binary file is available (download if missing)
+    # Preload models (download if missing)
+    print("[1] Preparing Word2Vec model...")
     w2v_path = download_word2vec_model()
-    if not w2v_path:
-        print("Word2Vec binary not available. Skipping Word2Vec demo.")
-        w2v_model = None
-    else:
-        w2v_model = load_word2vec_model(w2v_path, use_cached=True)
-        if w2v_model:
-            model_info(w2v_model, "Word2Vec (GoogleNews)")
-            # Nearest neighbors
-            for word in ["king", "france", "computer"]:
-                nearest_neighbors(word, w2v_model, topn=5)
-            # Analogies
-            analogies = [
-                ("king", "man", "woman"),
-                ("france", "paris", "london"),
-                ("moscow", "russia", "tokyo"),
-            ]
-            print("\nWord2Vec Analogies")
-            for w1, w2, w3 in analogies:
-                find_analogies(w1, w2, w3, w2v_model, topn=3)
+    w2v_model = (
+        load_word2vec_model(w2v_path, use_cached=True) if w2v_path else None
+    )
 
-    # GloVe
-    print("\n[2] GloVe (6B.100d)")
-    print("-" * 60)
-
+    print("\n[2] Preparing GloVe model (6B.100d)...")
     glove_path = download_glove_model(version="6B.100d")
-    if not glove_path:
-        print("GloVe file not available. Skipping GloVe demo.")
-        glove_model = None
-    else:
-        glove_model = load_glove_model(glove_path, use_cached=True)
-        if glove_model:
-            model_info(glove_model, "GloVe (6B.100d)")
-            for word in ["king", "france", "computer"]:
-                nearest_neighbors(word, glove_model, topn=5)
-            analogies = [
-                ("king", "man", "woman"),
-                ("france", "paris", "london"),
-                ("moscow", "russia", "tokyo"),
-            ]
-            print("\nGloVe Analogies")
-            for w1, w2, w3 in analogies:
-                find_analogies(w1, w2, w3, glove_model, topn=3)
+    glove_model = (
+        load_glove_model(glove_path, use_cached=True) if glove_path else None
+    )
 
+    # Start interactive shell
     print("\n" + "=" * 60)
-    if w2v_model is None and glove_model is None:
-        print("Demo incomplete: both models failed to load.")
-    else:
-        print("Demo completed successfully.")
+    print("Starting interactive shell...")
     print("=" * 60)
+
+    interactive_shell(w2v_model, glove_model)
+
+    return 0
 
 
 if __name__ == "__main__":
     try:
-        main()
+        exit_code = main()
+        sys.exit(exit_code)
     except KeyboardInterrupt:
-        print("\n\nInterrupted by user.")
+        print("\n\nInterrupted by user (Ctrl+C).")
+        sys.exit(130)
     except Exception as e:
         print(f"\nUnexpected error: {type(e).__name__}: {e}")
+        sys.exit(1)

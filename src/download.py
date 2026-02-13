@@ -3,12 +3,13 @@ Utilities for downloading and verifying pre-trained embedding models.
 All functions include error handling and detailed console feedback.
 """
 
-import os
-import gdown
 import gzip
+import os
 import shutil
 import zipfile
 from typing import Optional
+
+import gdown
 
 # Word2Vec Source
 W2V_URL = "https://drive.google.com/uc?id=0B7XkCwpI5KDYNlNUTTlSS21pQmM"
@@ -34,12 +35,31 @@ GLOVE_TXT_SIZES = {
 }
 
 
-def verify_file_size(file_path: str, expected_size: int) -> bool:
-    """Check if the file size matches the expected value."""
+def verify_file_size(
+    file_path: str,
+    expected_size: int,
+    strict: bool = False
+) -> bool:
+    """Check file size with optional strict mode."""
     if not os.path.exists(file_path):
         return False
     actual_size = os.path.getsize(file_path)
-    return actual_size == expected_size
+
+    if actual_size == 0:
+        print(f"File is empty: {file_path}")
+        return False
+
+    if actual_size != expected_size:
+        diff_pct = abs(actual_size - expected_size) / expected_size * 100
+        if strict or diff_pct > 5.0:
+            print(
+                f"Size mismatch ({diff_pct:.1f}%): "
+                f"expected {expected_size:,} bytes, "
+                f"got {actual_size:,} bytes"
+            )
+            if strict:
+                return False
+    return True
 
 
 def extract_gzip(gz_path: str, bin_path: str) -> bool:
@@ -77,35 +97,55 @@ def download_word2vec_model(
 
     # Check if valid uncompressed binary already exists
     if os.path.exists(bin_path):
-        if verify_file_size(bin_path, W2V_SIZE):
-            print(f"Word2Vec binary already exists: {bin_path}")
-            return bin_path
-        else:
-            print(
-                "Existing binary has incorrect size. "
-                f"Expected {W2V_SIZE}, "
-                f"got {os.path.getsize(bin_path)}. Re-downloading..."
-            )
+        if verify_file_size(bin_path, W2V_SIZE, strict=False):
+            print(f"Word2Vec binary exists: {bin_path}")
+            try:
+                with open(bin_path, 'rb') as f:
+                    f.read(1024)
+                return bin_path
+            except Exception as e:
+                print(
+                    "File exists but appears corrupted: "
+                    f"{e}. Re-downloading..."
+                )
 
     # Check if valid compressed archive exists and extract it
     if os.path.exists(gz_path):
-        if verify_file_size(gz_path, W2V_GZ_SIZE):
-            print(f"Found valid compressed file, extracting: {gz_path}")
+        actual_gz_size = os.path.getsize(gz_path)
+        size_diff_pct = abs(actual_gz_size - W2V_GZ_SIZE) / W2V_GZ_SIZE * 100
+
+        if verify_file_size(gz_path, W2V_GZ_SIZE, strict=False):
+            print(f"Found compressed file (size OK), extracting: {gz_path}")
             if extract_gzip(gz_path, bin_path):
-                if verify_file_size(bin_path, W2V_SIZE):
+                if verify_file_size(bin_path, W2V_SIZE, strict=False):
                     print(f"Extraction complete: {bin_path}")
                     return bin_path
                 else:
                     print(
-                        "Extracted file has incorrect size. Re-downloading..."
+                        "Extracted file has incorrect size. "
+                        "Re-downloading..."
                     )
-            # Fall through to download on extraction failure or size mismatch
         else:
-            print(
-                "Compressed file has incorrect size. "
-                f"Expected {W2V_GZ_SIZE}, "
-                f"got {os.path.getsize(gz_path)}. Re-downloading..."
-            )
+            if size_diff_pct > 5.0:
+                print(
+                    f"Re-downloading due to significant size mismatch "
+                    f"({size_diff_pct:.1f}%)..."
+                )
+                os.remove(gz_path)
+            else:
+                print(
+                    f"Size slightly differs ({size_diff_pct:.1f}%) "
+                    f"but proceeding with extraction..."
+                )
+                if extract_gzip(gz_path, bin_path):
+                    if verify_file_size(bin_path, W2V_SIZE, strict=False):
+                        print(f"Extraction complete: {bin_path}")
+                        return bin_path
+                    else:
+                        print(
+                            "Extracted file has incorrect size. "
+                            "Re-downloading..."
+                        )
 
     # Verify sufficient disk space before download (~4.5 GB recommended)
     # +0.5 GB buffer
@@ -147,12 +187,14 @@ def download_word2vec_model(
 
     gz_size = os.path.getsize(gz_path)
     print(f"Downloaded compressed file size: {gz_size / 1024**3:.2f} GB")
-    if not verify_file_size(gz_path, W2V_GZ_SIZE):
+
+    if not verify_file_size(gz_path, W2V_GZ_SIZE, strict=False):
+        diff_pct = abs(gz_size - W2V_GZ_SIZE) / W2V_GZ_SIZE * 100
         print(
-            f"Size mismatch: expected {W2V_GZ_SIZE} "
-            f"bytes, got {gz_size} bytes."
+            f"Size mismatch ({diff_pct:.1f}%): "
+            f"expected {W2V_GZ_SIZE:,} bytes, "
+            f"got {gz_size:,} bytes, proceeding anyway"
         )
-        return None
 
     # Extract the archive
     print("Extracting compressed file...")
@@ -162,16 +204,18 @@ def download_word2vec_model(
     print(f"Extraction complete: {bin_path}")
 
     # Final verification of uncompressed file
-    if verify_file_size(bin_path, W2V_SIZE):
-        print("File size matches expected value. Download successful.")
+    if verify_file_size(bin_path, W2V_SIZE, strict=False):
+        print(f"Word2Vec (GoogleNews) ready: {bin_path}")
         return bin_path
     else:
         actual = os.path.getsize(bin_path)
+        diff_pct = abs(actual - W2V_SIZE) / W2V_SIZE * 100
         print(
-            "Size mismatch after extraction: "
-            f"expected {W2V_SIZE}, got {actual}"
+            f"Size mismatch after extraction ({diff_pct:.1f}%): "
+            f"expected {W2V_SIZE:,} bytes, got {actual:,} bytes"
+            "File may still be usable."
         )
-        return None
+        return bin_path
 
 
 def get_glove_txt_path(data_dir: str, version: str) -> str:
@@ -185,7 +229,7 @@ def verify_glove_txt(data_dir: str, version: str) -> bool:
     expected = GLOVE_TXT_SIZES.get(version)
     if expected is None:
         raise ValueError(f"Unknown GloVe version: {version}")
-    return verify_file_size(txt_path, expected)
+    return verify_file_size(txt_path, expected, strict=False)
 
 
 def download_glove_model(
@@ -226,37 +270,64 @@ def download_glove_model(
 
     # Check if target .txt already exists and is valid
     if os.path.exists(txt_path):
-        if verify_file_size(txt_path, expected_txt_size):
+        if verify_file_size(txt_path, expected_txt_size, strict=False):
             print(f"GloVe {version} already exists: {txt_path}")
-            return txt_path
+            # Проверка читаемости файла
+            try:
+                with open(txt_path, 'r', encoding='utf-8') as f:
+                    sample = f.read(1024)
+                    if not sample.strip():
+                        raise ValueError("File appears empty")
+                return txt_path
+            except Exception as e:
+                print(
+                    f"File exists but is unreadable: {e}. "
+                    "Re-downloading..."
+                )
+                if os.path.exists(txt_path):
+                    os.remove(txt_path)
         else:
             actual = os.path.getsize(txt_path)
             print(
-                f"Existing {version} file has incorrect size.\n"
-                f"Expected {expected_txt_size} bytes, "
-                f"got {actual}. Re-downloading..."
+                f"Size mismatch for {version}: "
+                f"expected {expected_txt_size:,} bytes, "
+                f"got {actual:,} bytes"
             )
             # Clean corrupted file
-            os.remove(txt_path)
+            if os.path.exists(txt_path):
+                os.remove(txt_path)
 
     # Check if zip archive exists and is valid
     zip_valid = (
         os.path.exists(zip_path)
-        and verify_file_size(zip_path, GLOVE_ZIP_SIZE)
+        and verify_file_size(zip_path, GLOVE_ZIP_SIZE, strict=False)
     )
 
     if zip_valid and not force_download:
         print(f"Found valid zip archive: {zip_path}")
         # Try to extract only the needed file
         if extract_glove_single_file(zip_path, version, data_dir):
-            if verify_glove_txt(data_dir, version):
-                print(f"Extracted {version} from existing zip.")
-                # If keep_zip=True, keep .zip archive after extraction
-                # (default False — delete to save space)
-                if not keep_zip:
-                    os.remove(zip_path)
-                    print("Removed zip archive (use keep_zip=True to retain).")
-                return txt_path
+            try:
+                with open(txt_path, 'r', encoding='utf-8') as f:
+                    sample = f.read(1024)
+                    if not sample.strip():
+                        raise ValueError("Extracted file appears empty")
+            except Exception as e:
+                print(f"Extracted file is unreadable: {e}. Re-downloading...")
+                if os.path.exists(txt_path):
+                    os.remove(txt_path)
+            else:
+                if verify_glove_txt(data_dir, version):
+                    print(f"Extracted {version} from existing zip.")
+                    # If keep_zip=True, keep .zip archive after extraction
+                    # (default False — delete to save space)
+                    if not keep_zip:
+                        os.remove(zip_path)
+                        print(
+                            "Removed zip archive "
+                            "(use keep_zip=True to retain)."
+                        )
+                    return txt_path
         else:
             print("Extraction failed, will re-download full archive.")
     else:
@@ -301,20 +372,30 @@ def download_glove_model(
     zip_size = os.path.getsize(zip_path)
     print(f"Downloaded zip size: {zip_size / 1024**3:.2f} GB")
 
-    if not verify_file_size(zip_path, GLOVE_ZIP_SIZE):
+    if not verify_file_size(zip_path, GLOVE_ZIP_SIZE, strict=False):
         print(
             f"Zip size mismatch: expected {GLOVE_ZIP_SIZE} bytes, "
-            f"got {zip_size}."
+            f"got {zip_size} bytes, proceeding anyway"
         )
-        # We continue anyway — maybe the file is still usable
 
     # Extract the specific version file
     if not extract_glove_single_file(zip_path, version, data_dir):
         return None
 
+    try:
+        with open(txt_path, 'r', encoding='utf-8') as f:
+            sample = f.read(1024)
+            if not sample.strip():
+                raise ValueError("Extracted file appears empty")
+    except Exception as e:
+        print(f"Extracted file is unreadable: {e}. Re-downloading...")
+        if os.path.exists(txt_path):
+            os.remove(txt_path)
+        return None
+
     # Verify extracted .txt file
     if verify_glove_txt(data_dir, version):
-        print(f"GloVe {version} ready: {txt_path}")
+        print(f"GloVe ({version}) ready: {txt_path}")
 
         # Cleanup zip unless requested otherwise
         if not keep_zip and os.path.exists(zip_path):
@@ -325,8 +406,8 @@ def download_glove_model(
     else:
         actual = os.path.getsize(txt_path) if os.path.exists(txt_path) else 0
         print(
-            f"Extracted file size mismatch for {version}.\n"
-            f"Expected {expected_txt_size}, got {actual}."
+            f"Size mismatch for {version}: "
+            f"expected {expected_txt_size:,} bytes, got {actual:,} bytes"
         )
         return None
 

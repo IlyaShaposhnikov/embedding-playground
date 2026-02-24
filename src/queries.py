@@ -98,6 +98,7 @@ def find_analogies(
     model: KeyedVectors,
     topn: int = 3,
     model_name: Optional[str] = None,
+    visualize: bool = False,
 ) -> List[Tuple[str, float]]:
     """Solve word analogy: w1 - w2 = ? - w3   (vector: w1 - w2 + w3)"""
     results = get_analogy_solution(w1, w2, w3, model, topn=topn)
@@ -122,5 +123,17 @@ def find_analogies(
     for i, (candidate, sim) in enumerate(results, 1):
         print(f"{i:2d}. {candidate:<20s}  {sim:>10.4f}")
     print("─" * 60)
+
+    if visualize and model is not None:
+        try:
+            from src.visualize import visualize_analogy
+            visualize_analogy(
+                w1, w2, w3, results,
+                model,
+                model_name=model_name or "Model",
+                method="pca"
+            )
+        except Exception as e:
+            print(f"Visualization failed: {e}")
 
     return results

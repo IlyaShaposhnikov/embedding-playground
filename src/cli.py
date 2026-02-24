@@ -136,8 +136,13 @@ def interactive_shell(
                 # Analogy: ana king man woman 3
                 parts = cmd.split()
                 if len(parts) < 4:
-                    print("Usage: ana <w1> <w2> <w3> [topn]")
+                    print("Usage: ana <w1> <w2> <w3> [topn] [-v]")
                     continue
+
+                visualize = "-v" in parts
+                if visualize:
+                    parts.remove("-v")
+
                 w1, w2, w3 = parts[1:4]
 
                 try:
@@ -151,11 +156,12 @@ def interactive_shell(
                             f"{MAX_TOPN} (requested {topn})"
                         )
                         topn = MAX_TOPN
-                except ValueError:
+                except (ValueError, IndexError):
                     print(
                         f"Invalid number: '{parts[4]}'. "
-                        "Please use an integer (e.g., 3)."
+                        "topn set to default value (3)."
                     )
+                    topn = 3
                     continue
 
                 if current_model is None:
@@ -163,7 +169,8 @@ def interactive_shell(
                 else:
                     find_analogies(
                         w1, w2, w3, current_model, topn=topn,
-                        model_name=model_name
+                        model_name=model_name,
+                        visualize=visualize
                     )
 
             elif cmd.startswith("vc "):
@@ -261,20 +268,22 @@ def _show_help() -> None:
     """Display available commands."""
     help_text = """
 COMMANDS:
-  use <model>                Switch model: 'word2vec' or 'glove'
-  nn <word> [topn]           Nearest neighbors (default topn=5)
-  ana <w1> <w2> <w3> [topn]  Word analogy (default topn=3) | w1 - w2 = ? - w3
-  vc <w1> [w2 ...] [n] [m]   Visualize semantic clusters:
-                             • <w1>... : seed words (min 1)
-                             • [n]     : neighbors per seed (default 3, max 20)
-                             • [m]     : method 'pca' or 'tsne' (default pca)
-                             → Automatically saved to data/visualizations/
-  demo                       Run full demonstration
-                             → (neighbors, analogies, clusters)
-  model                      Show current model info
-  eval                       Evaluate current model on Google Analogy Test Set
-  help                       Show this help
-  exit / quit                Exit program
+  use <model>                     Switch model: 'word2vec' or 'glove'
+  nn <word> [topn]                Nearest neighbors (default topn=5)
+  ana <w1> <w2> <w3> [topn] [-v]  Word analogy (default topn=3) | w1 - w2 = ? - w3
+                                  • -v   : visualize results in 2D space (pca method)
+                                  → Automatically saved to data/visualizations/
+  vc <w1> [w2 ...] [n] [m]        Visualize semantic clusters:
+                                  • <w1> : seed words (min 1)
+                                  • [n]  : neighbors per seed (default 3, max 20)
+                                  • [m]  : method 'pca' or 'tsne' (default pca)
+                                  → Automatically saved to data/visualizations/
+  demo                            Run full demonstration
+                                  → (neighbors, analogies, clusters)
+  model                           Show current model info
+  eval                            Evaluate current model on Google Analogy Test Set
+  help                            Show this help
+  exit / quit                     Exit program
 """
     print(help_text)
 

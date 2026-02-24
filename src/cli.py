@@ -9,6 +9,8 @@ from typing import Optional
 
 from gensim.models import KeyedVectors
 
+from src.download import download_analogy_test_set
+from src.evaluate import evaluate_model
 from src.models import model_info
 from src.queries import find_analogies, nearest_neighbors
 from src.visualize import visualize_word_clusters
@@ -231,6 +233,14 @@ def interactive_shell(
                     )
                     print(f"Saved to: {save_path.as_posix()}")
 
+            elif cmd == "eval":
+                if current_model is None:
+                    print("No model loaded. Use 'use <model>' first.")
+                else:
+                    test_file = download_analogy_test_set()
+                    if test_file:
+                        evaluate_model(current_model, test_file, model_name)
+
             elif cmd == "":
                 continue
 
@@ -262,6 +272,7 @@ COMMANDS:
   demo                       Run full demonstration
                              → (neighbors, analogies, clusters)
   model                      Show current model info
+  eval                       Evaluate current model on Google Analogy Test Set
   help                       Show this help
   exit / quit                Exit program
 """

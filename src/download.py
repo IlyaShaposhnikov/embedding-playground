@@ -33,6 +33,8 @@ GLOVE_TXT_SIZES = {
     "6B.200d": 693_432_828,   # ~661 MB
     "6B.300d": 1_037_962_819  # ~989 MB
 }
+QUESTIONS_URL = "http://download.tensorflow.org/data/questions-words.txt"
+QUESTIONS_FILE = "questions-words.txt"
 
 
 def verify_file_size(
@@ -436,3 +438,40 @@ def extract_glove_single_file(
     except Exception as e:
         print(f"Extraction failed: {e}")
         return False
+
+
+def download_analogy_test_set(data_dir: str = "data") -> Optional[str]:
+    """
+    Download Google Analogy Test Set (questions-words.txt).
+    Contains 19,544 analogy questions (8,869 semantic + 10,675 syntactic).
+    Source: Tomas Mikolov et al., 2013
+    (Efficient Estimation of Word Representations...)
+    """
+    os.makedirs(data_dir, exist_ok=True)
+    dest = os.path.join(data_dir, QUESTIONS_FILE)
+
+    if os.path.exists(dest) and os.path.getsize(dest) > 0:
+        print(f"Analogy test set already exists: {dest}")
+        return dest
+
+    print("Downloading Google Analogy Test Set (questions-words.txt)...")
+    print("Source: Tomas Mikolov et al. (2013)")
+    print("Contains 19,544 questions (semantic + syntactic)")
+
+    try:
+        gdown.download(QUESTIONS_URL, dest, quiet=False)
+        print(f"\nDownload complete: {dest}")
+
+        if os.path.getsize(dest) < 500_000:
+            print(
+                "Warning: file size is small "
+                f"({os.path.getsize(dest):,} bytes)"
+            )
+            return None
+
+        return dest
+    except Exception as e:
+        print(f"Download failed: {e}")
+        print(f"Try manual download: {QUESTIONS_URL}")
+        print(f"Save as: {dest}")
+        return None

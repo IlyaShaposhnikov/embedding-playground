@@ -157,12 +157,12 @@ def interactive_shell(
                         )
                         topn = MAX_TOPN
                 except (ValueError, IndexError):
+                    invalid_val = parts[4] if len(parts) > 4 else "missing"
                     print(
-                        f"Invalid number: '{parts[4]}'. "
+                        f"Invalid number: '{invalid_val}'. "
                         "topn set to default value (3)."
                     )
                     topn = 3
-                    continue
 
                 if current_model is None:
                     print("No model loaded. Use 'use <model>' first.")
@@ -272,7 +272,6 @@ COMMANDS:
   nn <word> [topn]                Nearest neighbors (default topn=5)
   ana <w1> <w2> <w3> [topn] [-v]  Word analogy (default topn=3) | w1 - w2 = ? - w3
                                   • -v   : visualize results in 2D space (pca method)
-                                  → Automatically saved to data/visualizations/
   vc <w1> [w2 ...] [n] [m]        Visualize semantic clusters:
                                   • <w1> : seed words (min 1)
                                   • [n]  : neighbors per seed (default 3, max 20)

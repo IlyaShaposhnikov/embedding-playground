@@ -150,6 +150,6 @@ Ensure ≥6 GB free RAM for comfortable usage with both models.
 
 ## Author
 
-Ilya Shaposhnikov | [e-mail](mailto:ilia.a.shaposhnikov@gmail.com) | [LinkedIn](https://linkedin.com/in/iliashaposhnikov)
+Ilya Shaposhnikov | [E-mail](mailto:ilia.a.shaposhnikov@gmail.com) | [LinkedIn](https://linkedin.com/in/iliashaposhnikov)
 
 **[Russian Version / На русском](README.ru.md)**

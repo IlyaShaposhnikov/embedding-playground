@@ -151,6 +151,6 @@ Too many users have viewed or downloaded this file recently...
 
 ## Автор
 
-Илья Шапошников | [e-mail](mailto:ilia.a.shaposhnikov@gmail.com) | [LinkedIn](https://linkedin.com/in/iliashaposhnikov)
+Илья Шапошников | [E-mail](mailto:ilia.a.shaposhnikov@gmail.com) | [LinkedIn](https://linkedin.com/in/iliashaposhnikov)
 
 **[English Version / На английском](README.md)**

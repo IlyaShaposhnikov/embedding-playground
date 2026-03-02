@@ -1,6 +1,6 @@
 **[Russian Version / На русском](README.ru.md)**
 
-# Embedding Playground
+# Embedding Visualizer
 
 **Interactive toolkit for exploring word embeddings: Word2Vec, GloVe, nearest neighbors, analogies, and 2D visualizations.**
 
@@ -23,8 +23,8 @@
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/IlyaShaposhnikov/embedding-playground.git
-cd embedding-playground
+git clone https://github.com/IlyaShaposhnikov/embedding-visualizer.git
+cd embedding-visualizer
 python -m venv .venv
 source venv/Scripts/activate  #Windows
 source .venv/bin/activate  # Linux/macOS
@@ -94,7 +94,7 @@ Word2Vec (GoogleNews) | ANALOGY: king - man = ? - woman
 
 ## Project Structure
 ```
-embedding-playground/
+embedding-visualizer/
 ├── data/                    # Models (downloaded by user) & visualizations
 │   ├── GoogleNews-vectors-negative300.bin      # Word2Vec binary (3.4 GB)
 │   ├── glove.6B.100d.txt                       # GloVe vectors (331 MB)

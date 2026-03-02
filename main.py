@@ -1,7 +1,3 @@
-"""
-Entry point for embedding-playground.
-Demonstrates loading Word2Vec / GloVe, nearest neighbors and word analogies.
-"""
 import sys
 
 from src.cli import interactive_shell
@@ -11,7 +7,7 @@ from src.models import load_word2vec_model, load_glove_model
 
 def main():
     print("=" * 60)
-    print("Embedding Playground — Interactive Shell")
+    print("Embedding Visualizer — Interactive Shell")
     print("=" * 60)
     print("Models will be downloaded on first use if missing.\n")
 

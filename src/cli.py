@@ -1,5 +1,5 @@
 """
-Interactive terminal interface for embedding-playground.
+Interactive terminal interface.
 Allows users to query nearest neighbors and word analogies in real time.
 """
 from datetime import datetime

@@ -1,6 +1,6 @@
 **[English Version / На английском](README.md)**
 
-# Embedding Playground
+# Embedding Visualizer
 
 **Интерактивный инструмент для исследования эмбеддингов (векторных представлений) слов: Word2Vec, GloVe, поиск ближайших соседей, поиск аналогий и 2D-визуализация.**
 
@@ -23,8 +23,8 @@
 ### 1. Клонирование и установка
 
 ```bash
-git clone https://github.com/IlyaShaposhnikov/embedding-playground.git
-cd embedding-playground
+git clone https://github.com/IlyaShaposhnikov/embedding-visualizer.git
+cd embedding-visualizer
 python -m venv .venv
 source venv/Scripts/activate  #Windows
 source .venv/bin/activate  # Linux/macOS
@@ -94,7 +94,7 @@ Word2Vec (GoogleNews) | ANALOGY: king - man = ? - woman
 
 ## Структура проекта
 ```
-embedding-playground/
+embedding-visualizer/
 ├── data/                    # Загружаемые пользователем модели и визуализации
 │   ├── GoogleNews-vectors-negative300.bin      # Word2Vec (3,4 ГБ)
 │   ├── glove.6B.100d.txt                       # GloVe (331 МБ)

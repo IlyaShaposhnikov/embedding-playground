@@ -8,8 +8,9 @@ from typing import List, Tuple, Optional
 
 from gensim.models import KeyedVectors
 
-from src.data.data_extraction import (
-    get_nearest_neighbors, get_analogy_solution
+from src.services.embedding import find_nearest_neighbors, solve_analogy
+from src.presentation.formatting import (
+    format_nearest_neighbors, format_analogy_results
 )
 from src.visualize import visualize_analogy
 
@@ -31,21 +32,16 @@ def nearest_neighbors(
         print("Load a model first.")
         return []
 
-    results = get_nearest_neighbors(word, model, topn)
-    if results is None:
+    results = find_nearest_neighbors(word, model, topn)
+    if not results:
         print(f"Word '{word}' not in vocabulary.")
         sample = list(model.key_to_index.keys())[:10]
         print(f"Sample vocabulary: {', '.join(sample)}")
         return []
 
     # Pretty output
-    model_label = f"{model_name}" if model_name else ""
-    print(f"\n{model_label} | NEAREST NEIGHBORS: '{word}'")
-    print("─" * 60)
-    for i, (neighbor, sim) in enumerate(results, 1):
-        bar = "=" * int(sim * 20)
-        print(f"{i:2d}. {neighbor:20s} | {sim:.4f} | {bar}")
-    print("─" * 60)
+    formatted_output = format_nearest_neighbors(word, results, model_name)
+    print(formatted_output)
 
     return results
 
@@ -62,9 +58,9 @@ def find_analogies(
     save: Optional[Path] = None,
 ) -> List[Tuple[str, float]]:
     """Solve word analogy: w1 - w2 = ? - w3   (vector: w1 - w2 + w3)"""
-    results = get_analogy_solution(w1, w2, w3, model, topn=topn)
+    results = solve_analogy(w1, w2, w3, model, topn=topn)
 
-    if results is None:
+    if not results:
         if model is None:
             print("Load a model first.")
         else:
@@ -78,14 +74,8 @@ def find_analogies(
         return []
 
     # Pretty output
-    model_label = f"{model_name}" if model_name else ""
-    print(f"\n{model_label} | ANALOGY: {w1} - {w2} = ? - {w3}")
-    print("─" * 60)
-    print(f"{'#':>2s}  {'Solution':<20s}  {'Similarity':>10s}")
-    print("─" * 60)
-    for i, (candidate, sim) in enumerate(results, 1):
-        print(f"{i:2d}. {candidate:<20s}  {sim:>10.4f}")
-    print("─" * 60)
+    formatted_output = format_analogy_results(w1, w2, w3, results, model_name)
+    print(formatted_output)
 
     # Visualization with auto-saving if requested
     if visualize and model is not None and results:

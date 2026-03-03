@@ -21,3 +21,6 @@ build/
 # Large model files and visualizations
 /data/
 /data/visualizations/
+
+# Logs
+/logs/

@@ -1,5 +1,6 @@
 import sys
 import logging
+from pathlib import Path
 
 from src.core.logging_config import setup_logging
 from src.cli import interactive_shell
@@ -8,10 +9,19 @@ from src.models import load_word2vec_model, load_glove_model
 
 
 def main():
-    setup_logging(verbose=False)  # Change to True for debug output
+    logging.basicConfig(
+        level=logging.INFO, format='%(levelname)s: %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+    logger.info("Embedding Visualizer — Initializing...")
+
+    # Warnings/errors go to console, detailed logs to file
+    setup_logging(
+        verbose=False, log_file=Path("logs/embedding_visualizer.log")
+    )
     logger = logging.getLogger(__name__)
     logger.info("=" * 60)
-    logger.info("Embedding Visualizer — Interactive Shell")
+    logger.info("Embedding Visualizer - Interactive Shell")
     logger.info("=" * 60)
     logger.info("Models will be downloaded on first use if missing.\n")
 
@@ -44,9 +54,15 @@ if __name__ == "__main__":
         sys.exit(exit_code)
     except KeyboardInterrupt:
         logger = logging.getLogger(__name__)
+        if not logger.handlers:
+            logging.basicConfig(level=logging.INFO)
+            logger = logging.getLogger(__name__)
         logger.info("\n\nInterrupted by user (Ctrl+C).")
         sys.exit(130)
     except Exception as e:
         logger = logging.getLogger(__name__)
+        if not logger.handlers:
+            logging.basicConfig(level=logging.INFO)
+            logger = logging.getLogger(__name__)
         logger.error(f"\nUnexpected error: {type(e).__name__}: {e}")
         sys.exit(1)

@@ -125,13 +125,13 @@ def interactive_shell(
                         )
                         topn = MAX_TOPN
                 except ValueError:
-                    logger.error(
+                    print(
                         f"Invalid number: '{parts[2]}'. "
                         "Please use an integer (e.g., 5)."
                     )
                     continue
                 if current_model is None:
-                    logger.error("No model loaded. Use 'use <model>' first.")
+                    print("No model loaded. Use 'use <model>' first.")
                 else:
                     nearest_neighbors(
                         word, current_model, topn=topn, model_name=model_name
@@ -184,7 +184,7 @@ def interactive_shell(
                     topn = 3
 
                 if current_model is None:
-                    logger.error("No model loaded. Use 'use <model>' first.")
+                    print("No model loaded. Use 'use <model>' first.")
                 else:
                     # Generate save path if visualization is requested
                     save_path = None

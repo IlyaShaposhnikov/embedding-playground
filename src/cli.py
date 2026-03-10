@@ -10,6 +10,7 @@ from typing import Optional
 
 from gensim.models import KeyedVectors
 
+from src.core.config import settings
 from src.download import download_analogy_test_set
 from src.evaluate import evaluate_model
 from src.models import model_info
@@ -17,15 +18,6 @@ from src.queries import find_analogies, nearest_neighbors
 from src.visualize import visualize_word_clusters
 
 logger = logging.getLogger(__name__)
-
-MAX_TOPN = 50
-VIZ_SAVE_DIR = "data/visualizations"
-DEMO_NEIGHBORS = ["king", "france", "computer"]
-DEMO_ANALOGIES = [
-    ("king", "man", "woman"),
-    ("france", "paris", "london"),
-    ("moscow", "russia", "tokyo"),
-]
 
 
 def interactive_shell(
@@ -114,16 +106,19 @@ def interactive_shell(
                     continue
                 word = parts[1]
                 try:
-                    topn = int(parts[2]) if len(parts) > 2 else 5
+                    topn = (
+                        int(parts[2]) if len(parts) > 2
+                        else settings.DEFAULT_TOPN_NN
+                    )
                     if topn < 1:
                         print("topn must be at least 1.")
                         continue
-                    if topn > MAX_TOPN:
+                    if topn > settings.MAX_TOPN:
                         print(
                             "Warning: topn capped at "
-                            f"{MAX_TOPN} (requested {topn})"
+                            f"{settings.MAX_TOPN} (requested {topn})"
                         )
-                        topn = MAX_TOPN
+                        topn = settings.MAX_TOPN
                 except ValueError:
                     print(
                         f"Invalid number: '{parts[2]}'. "
@@ -155,33 +150,37 @@ def interactive_shell(
 
                 # Default method is PCA;
                 # check last argument for method override
-                method = "pca"
+                method = settings.DEFAULT_VIZ_METHOD
                 if parts[-1].lower() in ("pca", "tsne"):
                     method = parts[-1].lower()
                     parts = parts[:-1]
 
                 w1, w2, w3 = parts[1:4]
 
-                # Parse optional topn, default to 3
+                # Parse optional topn, default to settings.DEFAULT_TOPN_ANA
                 try:
-                    topn = int(parts[4]) if len(parts) > 4 else 3
+                    topn = (
+                        int(parts[4]) if len(parts) > 4
+                        else settings.DEFAULT_TOPN_ANA
+                    )
                     if topn < 1:
                         print("topn must be at least 1.")
                         continue
-                    if topn > MAX_TOPN:
+                    if topn > settings.MAX_TOPN:
                         print(
                             "Warning: topn capped at "
-                            f"{MAX_TOPN} (requested {topn})"
+                            f"{settings.MAX_TOPN} (requested {topn})"
                         )
-                        topn = MAX_TOPN
+                        topn = settings.MAX_TOPN
                 except (ValueError, IndexError):
                     # Safely handle missing or invalid topn value
                     invalid_val = parts[4] if len(parts) > 4 else "missing"
                     print(
                         f"Invalid number: '{invalid_val}'. "
-                        "topn set to default value (3)."
+                        "topn set to default value "
+                        f"({settings.DEFAULT_TOPN_ANA})."
                     )
-                    topn = 3
+                    topn = settings.DEFAULT_TOPN_ANA
 
                 if current_model is None:
                     print("No model loaded. Use 'use <model>' first.")
@@ -189,7 +188,9 @@ def interactive_shell(
                     # Generate save path if visualization is requested
                     save_path = None
                     if visualize:
-                        Path(VIZ_SAVE_DIR).mkdir(parents=True, exist_ok=True)
+                        Path(
+                            settings.VIZ_DIR
+                        ).mkdir(parents=True, exist_ok=True)
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         # Sanitize model name for filename
                         safe_model_name = re.sub(
@@ -203,7 +204,7 @@ def interactive_shell(
                             f"analogy_{safe_model_name}_{method}_"
                             f"{analogy_str}_top{topn}_{timestamp}.png"
                         )
-                        save_path = Path(VIZ_SAVE_DIR) / filename
+                        save_path = Path(settings.VIZ_DIR) / filename
 
                     # Execute analogy query with visualization parameters
                     find_analogies(
@@ -225,8 +226,8 @@ def interactive_shell(
                     continue
 
                 words = []
-                topn = 3
-                method = "pca"
+                topn = settings.DEFAULT_TOPN_VC
+                method = settings.DEFAULT_VIZ_METHOD
 
                 args = parts[1:]
 
@@ -241,11 +242,13 @@ def interactive_shell(
                     if topn < 1:
                         print("topn must be at least 1.")
                         continue
-                    if topn > 20:
+                    if topn > settings.MAX_NEIGHBORS_PER_WORD_VC:
                         print(
-                            f"Warning: topn capped at 20 (requested {topn})."
+                            "Warning: topn capped at "
+                            f"{settings.MAX_NEIGHBORS_PER_WORD_VC} "
+                            f"(requested {topn})."
                         )
-                        topn = 20
+                        topn = settings.MAX_NEIGHBORS_PER_WORD_VC
                     args = args[:-1]
 
                 # Remaining arguments are seed words
@@ -259,7 +262,7 @@ def interactive_shell(
                     print("No model loaded. Use 'use <model>' first.")
                 else:
                     # Ensure visualization directory exists
-                    Path(VIZ_SAVE_DIR).mkdir(parents=True, exist_ok=True)
+                    Path(settings.VIZ_DIR).mkdir(parents=True, exist_ok=True)
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     # Sanitize model name for filesystem
                     safe_model_name = re.sub(
@@ -272,7 +275,7 @@ def interactive_shell(
                         f"clust_{safe_model_name}_{method}_"
                         f"{seed_str}_top{topn}_{timestamp}.png"
                     )
-                    save_path = Path(VIZ_SAVE_DIR) / filename
+                    save_path = Path(settings.VIZ_DIR) / filename
 
                     print(
                         "Generating cluster visualization "
@@ -366,25 +369,26 @@ def _run_demo(
         print("-" * 60)
         model_info(w2v_model, "Word2Vec (GoogleNews)")
 
-        for word in DEMO_NEIGHBORS:
+        for word in settings.Demo.NEIGHBORS:
             nearest_neighbors(
-                word, w2v_model, topn=5, model_name="Word2Vec (GoogleNews)"
+                word, w2v_model, topn=settings.DEFAULT_TOPN_NN,
+                model_name="Word2Vec (GoogleNews)"
             )
 
         print("\nWord2Vec Analogies")
-        for w1, w2, w3 in DEMO_ANALOGIES:
+        for w1, w2, w3 in settings.Demo.ANALOGIES:
             find_analogies(
-                w1, w2, w3, w2v_model, topn=3,
+                w1, w2, w3, w2v_model, topn=settings.DEFAULT_TOPN_ANA,
                 model_name="Word2Vec (GoogleNews)"
             )
 
         print("\nWord2Vec Cluster Visualization")
-        print(f"Seeds: {', '.join(DEMO_NEIGHBORS)}")
+        print(f"Seeds: {', '.join(settings.Demo.NEIGHBORS)}")
         visualize_word_clusters(
-            DEMO_NEIGHBORS,
+            settings.Demo.NEIGHBORS,
             w2v_model,
-            topn=3,
-            method="pca",
+            topn=settings.DEFAULT_TOPN_VC,
+            method=settings.DEFAULT_VIZ_METHOD,
             model_name="Word2Vec (GoogleNews)",
             save=None,
         )
@@ -397,24 +401,26 @@ def _run_demo(
         print("-" * 60)
         model_info(glove_model, "GloVe (6B.100d)")
 
-        for word in DEMO_NEIGHBORS:
+        for word in settings.Demo.NEIGHBORS:
             nearest_neighbors(
-                word, glove_model, topn=5, model_name="GloVe (6B.100d)"
+                word, glove_model, topn=settings.DEFAULT_TOPN_NN,
+                model_name="GloVe (6B.100d)"
             )
 
         print("\nGloVe Analogies")
-        for w1, w2, w3 in DEMO_ANALOGIES:
+        for w1, w2, w3 in settings.Demo.ANALOGIES:
             find_analogies(
-                w1, w2, w3, glove_model, topn=3, model_name="GloVe (6B.100d)"
+                w1, w2, w3, glove_model, topn=settings.DEFAULT_TOPN_ANA,
+                model_name="GloVe (6B.100d)"
             )
 
         print("\nGloVe Cluster Visualization")
-        print(f"Seeds: {', '.join(DEMO_NEIGHBORS)}")
+        print(f"Seeds: {', '.join(settings.Demo.NEIGHBORS)}")
         visualize_word_clusters(
-            DEMO_NEIGHBORS,
+            settings.Demo.NEIGHBORS,
             glove_model,
-            topn=3,
-            method="pca",
+            topn=settings.DEFAULT_TOPN_VC,
+            method=settings.DEFAULT_VIZ_METHOD,
             model_name="GloVe (6B.100d)",
             save=None,
         )

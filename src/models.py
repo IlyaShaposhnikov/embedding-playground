@@ -15,11 +15,9 @@ from typing import Optional
 from gensim.models import KeyedVectors
 from gensim.scripts.glove2word2vec import glove2word2vec
 
-logger = logging.getLogger(__name__)
+from src.core.config import settings
 
-DEFAULT_DATA_DIR = "data"
-W2V_BIN = "GoogleNews-vectors-negative300.bin"
-DEFAULT_GLOVE_VERSION = "6B.100d"
+logger = logging.getLogger(__name__)
 
 
 def _get_cached_model_path(original_path: str) -> str:
@@ -54,7 +52,7 @@ def _load_cached_model(
 
 def load_word2vec_model(
     bin_path: Optional[str] = None,
-    data_dir: str = DEFAULT_DATA_DIR,
+    data_dir: str = str(settings.MODELS_DIR),
     use_cached: bool = True,
     force_reload: bool = False,
 ) -> Optional[KeyedVectors]:
@@ -63,7 +61,7 @@ def load_word2vec_model(
     If a cached .model file exists, loads it instantly (recommended).
     """
     if bin_path is None:
-        bin_path = os.path.join(data_dir, W2V_BIN)
+        bin_path = os.path.join(data_dir, settings.Word2Vec.BIN_NAME)
 
     # Check if the original binary exists and is non-empty
     if not os.path.exists(bin_path) or os.path.getsize(bin_path) == 0:
@@ -113,8 +111,8 @@ def load_word2vec_model(
 
 def load_glove_model(
     txt_path: Optional[str] = None,
-    version: str = DEFAULT_GLOVE_VERSION,
-    data_dir: str = DEFAULT_DATA_DIR,
+    version: str = settings.GloVe.DEFAULT_VERSION,
+    data_dir: str = str(settings.MODELS_DIR),
     use_cached: bool = True,
     force_reload: bool = False,
 ) -> Optional[KeyedVectors]:
@@ -123,7 +121,8 @@ def load_glove_model(
     (converted to Word2Vec format internally).
     """
     if txt_path is None:
-        txt_path = os.path.join(data_dir, f"glove.{version}.txt")
+        txt_filename = settings.GloVe.TXT_PATTERN.format(version=version)
+        txt_path = os.path.join(data_dir, txt_filename)
 
     # Check if the original text file exists and is non-empty
     if not os.path.exists(txt_path) or os.path.getsize(txt_path) == 0:

@@ -5,7 +5,7 @@ Does not perform any business logic or printing.
 
 from typing import List, Tuple, Optional, Dict, Any
 
-from src.services.evaluation import SEMANTIC_SECTIONS, SYNTACTIC_SECTIONS
+from src.core.config import settings
 
 
 def format_nearest_neighbors(
@@ -83,11 +83,12 @@ def format_evaluation_results(
     output_lines.append("-" * 60)
 
     for section, corr, tot, acc in section_details:
-        section_type = (
-            " [SEM]" if section in SEMANTIC_SECTIONS
-            else " [SYN]" if section in SYNTACTIC_SECTIONS
-            else ""
-        )
+        if section in settings.AnalogyTestSet.SEMANTIC_SECTIONS:
+            section_type = " [SEM]"
+        elif section in settings.AnalogyTestSet.SYNTACTIC_SECTIONS:
+            section_type = " [SYN]"
+        else:
+            section_type = ""
         label = f"{section}{section_type}"
         output_lines.append(f"{label:<35} {corr:8d} {tot:8d} {acc:9.2f}%")
 

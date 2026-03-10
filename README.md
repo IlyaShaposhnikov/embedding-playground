@@ -110,6 +110,41 @@ embedding-visualizer/
 ├── requirements.txt        # Dependencies
 ├── README.md               # Project documentation (in English)
 └── README.ru.md            # Project documentation (in Russian)
+
+embedding-visualizer/
+├── data/                                # Models (downloaded by user) & visualizations
+│   ├── GoogleNews-vectors-negative300.bin      # Word2Vec (3.4 GB)
+│   ├── glove.6B.100d.txt                       # GloVe (331 MB)
+│   └── visualizations/                         # Auto-saved plots
+├── logs/                                 # Directory for log files
+│   └── embedding_visualizer.log                # Application logs
+├── src/
+│   ├── core/                             # Core application
+│   │   ├── config.py                           # Centralized configuration
+│   │   └── logging_config.py                   # Logging setup
+│   ├── data/                             # Data handling
+│   │   └── data_extraction.py                  # Data extraction from models
+│   ├── services/                         # Business logic
+│   │   ├── embedding.py                        # Core operations
+│   │   └── evaluation.py                       # Evaluation logic
+│   ├── visualization/                    # Visualization
+│   │   ├── data_preparation.py                 # Data preparation for visualization
+│   │   ├── projections.py                      # Data projection
+│   │   ├── plotting.py                         # Plotting logic
+│   │   ├── clusters.py                         # Cluster visualization
+│   │   └── analogies.py                        # Analogy visualization
+│   ├── presentation/                     # Presentation and formatting
+│   │   └── formatting.py                       # Result formatting
+│   ├── cli.py                            # Interactive shell & command parsing
+│   ├── download.py                       # Model download with size verification & mirrors
+│   ├── evaluate.py                       # Google Analogy Test Set evaluation
+│   ├── models.py                         # Model loading with caching
+│   ├── queries.py                        # Core operations interface
+│   └── visualize.py                      # Facade for visualization functions
+├── main.py                         # Entry point
+├── requirements.txt                # Dependencies
+├── README.md                       # Project documentation (English)
+└── README.ru.md                    # Project documentation (Russian)
 ```
 
 ## Troubleshooting

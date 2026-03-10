@@ -12,32 +12,9 @@ import zipfile
 
 import gdown
 
-logger = logging.getLogger(__name__)
+from src.core.config import settings
 
-# Word2Vec Source
-W2V_URL = "https://drive.google.com/uc?id=0B7XkCwpI5KDYNlNUTTlSS21pQmM"
-# Word2Vec mirror
-W2V_URL_MIRROR = (
-    "https://github.com/mmihaltz/word2vec-GoogleNews-vectors/"
-    "raw/master/GoogleNews-vectors-negative300.bin.gz"
-)
-# Expected file sizes for word2vec Google News vectors (in bytes)
-# Verify and update size in case of mismatch or manual download
-W2V_SIZE = 3_644_258_522      # ~3.39 GB (uncompressed .bin)
-W2V_GZ_SIZE = 1_647_046_227   # ~1.53 GB (compressed .gz)
-# GloVe Source
-GLOVE_URL = "https://nlp.stanford.edu/data/glove.6B.zip"
-# Expected file sizes for GloVe 6B (in bytes)
-# Verify and update size in case of mismatch or manual download
-GLOVE_ZIP_SIZE = 862_182_613  # ~822 MB (full zip archive)
-GLOVE_TXT_SIZES = {
-    "6B.50d": 171_350_079,    # ~163 MB
-    "6B.100d": 347_116_733,   # ~331 MB
-    "6B.200d": 693_432_828,   # ~661 MB
-    "6B.300d": 1_037_962_819  # ~989 MB
-}
-QUESTIONS_URL = "http://download.tensorflow.org/data/questions-words.txt"
-QUESTIONS_FILE = "questions-words.txt"
+logger = logging.getLogger(__name__)
 
 
 def verify_file_size(
@@ -56,7 +33,7 @@ def verify_file_size(
 
     if actual_size != expected_size:
         diff_pct = abs(actual_size - expected_size) / expected_size * 100
-        if strict or diff_pct > 5.0:
+        if strict or diff_pct > settings.Download.THRESHOLD:
             logger.warning(
                 f"Size mismatch ({diff_pct:.1f}%): "
                 f"expected {expected_size:,} bytes, "
@@ -81,7 +58,7 @@ def extract_gzip(gz_path: str, bin_path: str) -> bool:
 
 def download_word2vec_model(
     force_download: bool = False,
-    data_dir: str = "data"
+    data_dir: str = str(settings.DATA_DIR)
 ) -> Optional[str]:
     """
     Download GoogleNews pre-trained Word2Vec model (vectors-negative300).
@@ -89,8 +66,8 @@ def download_word2vec_model(
     """
     os.makedirs(data_dir, exist_ok=True)
 
-    gz_path = os.path.join(data_dir, "GoogleNews-vectors-negative300.bin.gz")
-    bin_path = os.path.join(data_dir, "GoogleNews-vectors-negative300.bin")
+    gz_path = os.path.join(data_dir, settings.Word2Vec.GZ_NAME)
+    bin_path = os.path.join(data_dir, settings.Word2Vec.BIN_NAME)
 
     # Clean cache when force_download is requested
     # force_download: If True, ignores existing files and re-downloads
@@ -102,7 +79,9 @@ def download_word2vec_model(
 
     # Check if valid uncompressed binary already exists
     if os.path.exists(bin_path):
-        if verify_file_size(bin_path, W2V_SIZE, strict=False):
+        if verify_file_size(
+            bin_path, settings.Word2Vec.BIN_SIZE, strict=False
+        ):
             logger.info(f"Word2Vec binary exists: {bin_path}")
             try:
                 with open(bin_path, 'rb') as f:
@@ -117,14 +96,19 @@ def download_word2vec_model(
     # Check if valid compressed archive exists and extract it
     if os.path.exists(gz_path):
         actual_gz_size = os.path.getsize(gz_path)
-        size_diff_pct = abs(actual_gz_size - W2V_GZ_SIZE) / W2V_GZ_SIZE * 100
+        size_diff_pct = (
+            abs(actual_gz_size - settings.Word2Vec.GZ_SIZE)
+            / settings.Word2Vec.GZ_SIZE * 100
+        )
 
-        if verify_file_size(gz_path, W2V_GZ_SIZE, strict=False):
+        if verify_file_size(gz_path, settings.Word2Vec.GZ_SIZE, strict=False):
             logger.info(
                 f"Found compressed file (size OK), extracting: {gz_path}"
             )
             if extract_gzip(gz_path, bin_path):
-                if verify_file_size(bin_path, W2V_SIZE, strict=False):
+                if verify_file_size(
+                    bin_path, settings.Word2Vec.BIN_SIZE, strict=False
+                ):
                     logger.info(f"Extraction complete: {bin_path}")
                     return bin_path
                 else:
@@ -133,7 +117,7 @@ def download_word2vec_model(
                         "Re-downloading..."
                     )
         else:
-            if size_diff_pct > 5.0:
+            if size_diff_pct > settings.Download.THRESHOLD:
                 logger.info(
                     f"Re-downloading due to significant size mismatch "
                     f"({size_diff_pct:.1f}%)..."
@@ -145,7 +129,9 @@ def download_word2vec_model(
                     f"but proceeding with extraction..."
                 )
                 if extract_gzip(gz_path, bin_path):
-                    if verify_file_size(bin_path, W2V_SIZE, strict=False):
+                    if verify_file_size(
+                        bin_path, settings.Word2Vec.BIN_SIZE, strict=False
+                    ):
                         logger.info(f"Extraction complete: {bin_path}")
                         return bin_path
                     else:
@@ -156,7 +142,11 @@ def download_word2vec_model(
 
     # Verify sufficient disk space before download (~4.5 GB recommended)
     # +0.5 GB buffer
-    required_space = W2V_SIZE + W2V_GZ_SIZE + 500_000_000
+    required_space = (
+        settings.Word2Vec.BIN_SIZE
+        + settings.Word2Vec.GZ_SIZE
+        + settings.Word2Vec.BUFFER
+    )
     free_space = shutil.disk_usage(data_dir).free
     if free_space < required_space:
         logger.error(
@@ -170,21 +160,22 @@ def download_word2vec_model(
         "Downloading Word2Vec model (GoogleNews-vectors-negative300.bin.gz)..."
     )
     logger.info(
-        f"This file is ~{W2V_GZ_SIZE / 1024**3:.1f} GB compressed, "
-        f"~{W2V_SIZE / 1024**3:.1f} GB uncompressed. "
-        "May take several minutes."
+        f"This file is ~{settings.Word2Vec.GZ_SIZE / 1024**3:.1f} GB "
+        f"compressed, ~{settings.Word2Vec.BIN_SIZE / 1024**3:.1f} GB "
+        "uncompressed. May take several minutes."
     )
 
     try:
-        gdown.download(W2V_URL, gz_path, quiet=False)
+        gdown.download(settings.Word2Vec.URL, gz_path, quiet=False)
     except Exception as e:
         logger.warning(f"Download failed: {e}. Trying mirror...")
         try:
-            gdown.download(W2V_URL_MIRROR, gz_path, quiet=False)
+            gdown.download(settings.Word2Vec.URL_MIRROR, gz_path, quiet=False)
         except Exception as mirror_e:
             logger.error(f"Mirror download failed: {mirror_e}")
             logger.info(
-                f"Download manually: {W2V_URL} or {W2V_URL_MIRROR}"
+                f"Download manually: {settings.Word2Vec.URL} "
+                f"or {settings.Word2Vec.URL_MIRROR}"
             )
             logger.info(f"Save as: {gz_path}")
             return None
@@ -197,11 +188,14 @@ def download_word2vec_model(
     gz_size = os.path.getsize(gz_path)
     logger.info(f"Downloaded compressed file size: {gz_size / 1024**3:.2f} GB")
 
-    if not verify_file_size(gz_path, W2V_GZ_SIZE, strict=False):
-        diff_pct = abs(gz_size - W2V_GZ_SIZE) / W2V_GZ_SIZE * 100
+    if not verify_file_size(gz_path, settings.Word2Vec.GZ_SIZE, strict=False):
+        diff_pct = (
+            abs(gz_size - settings.Word2Vec.GZ_SIZE)
+            / settings.Word2Vec.GZ_SIZE * 100
+        )
         logger.warning(
             f"Size mismatch ({diff_pct:.1f}%): "
-            f"expected {W2V_GZ_SIZE:,} bytes, "
+            f"expected {settings.Word2Vec.GZ_SIZE:,} bytes, "
             f"got {gz_size:,} bytes, proceeding anyway"
         )
 
@@ -213,15 +207,19 @@ def download_word2vec_model(
     logger.info(f"Extraction complete: {bin_path}")
 
     # Final verification of uncompressed file
-    if verify_file_size(bin_path, W2V_SIZE, strict=False):
+    if verify_file_size(bin_path, settings.Word2Vec.BIN_SIZE, strict=False):
         logger.info(f"Word2Vec (GoogleNews) ready: {bin_path}")
         return bin_path
     else:
         actual = os.path.getsize(bin_path)
-        diff_pct = abs(actual - W2V_SIZE) / W2V_SIZE * 100
+        diff_pct = (
+            abs(actual - settings.Word2Vec.BIN_SIZE)
+            / settings.Word2Vec.BIN_SIZE * 100
+        )
         logger.warning(
             f"Size mismatch after extraction ({diff_pct:.1f}%): "
-            f"expected {W2V_SIZE:,} bytes, got {actual:,} bytes"
+            f"expected {settings.Word2Vec.BIN_SIZE:,} bytes, "
+            f"got {actual:,} bytes"
             "File may still be usable."
         )
         return bin_path
@@ -229,22 +227,23 @@ def download_word2vec_model(
 
 def get_glove_txt_path(data_dir: str, version: str) -> str:
     """Generate expected path for a specific GloVe .txt file."""
-    return os.path.join(data_dir, f"glove.{version}.txt")
+    filename = settings.GloVe.TXT_PATTERN.format(version=version)
+    return os.path.join(data_dir, filename)
 
 
 def verify_glove_txt(data_dir: str, version: str) -> bool:
     """Check if a specific GloVe .txt file exists and has correct size."""
     txt_path = get_glove_txt_path(data_dir, version)
-    expected = GLOVE_TXT_SIZES.get(version)
+    expected = settings.GloVe.TXT_SIZES.get(version)
     if expected is None:
         raise ValueError(f"Unknown GloVe version: {version}")
     return verify_file_size(txt_path, expected, strict=False)
 
 
 def download_glove_model(
-    version: str = "6B.100d",
+    version: str = settings.GloVe.DEFAULT_VERSION,
     force_download: bool = False,
-    data_dir: str = "data",
+    data_dir: str = str(settings.DATA_DIR),
     keep_zip: bool = False
 ) -> Optional[str]:
     """
@@ -259,7 +258,7 @@ def download_glove_model(
     Implements smart caching: uses existing .txt if valid,
     reuses .zip if valid and extraction needed.
     """
-    expected_txt_size = GLOVE_TXT_SIZES.get(version)
+    expected_txt_size = settings.GloVe.TXT_SIZES.get(version)
     if expected_txt_size is None:
         logger.error(f"Unknown GloVe version: {version}")
         logger.info("Available: 6B.50d, 6B.100d, 6B.200d, 6B.300d")
@@ -267,7 +266,7 @@ def download_glove_model(
 
     os.makedirs(data_dir, exist_ok=True)
 
-    zip_path = os.path.join(data_dir, "glove.6B.zip")
+    zip_path = os.path.join(data_dir, settings.GloVe.ZIP_NAME)
     txt_path = get_glove_txt_path(data_dir, version)
 
     # Clean cache if force_download requested
@@ -309,7 +308,7 @@ def download_glove_model(
     # Check if zip archive exists and is valid
     zip_valid = (
         os.path.exists(zip_path)
-        and verify_file_size(zip_path, GLOVE_ZIP_SIZE, strict=False)
+        and verify_file_size(zip_path, settings.GloVe.ZIP_SIZE, strict=False)
     )
 
     if zip_valid and not force_download:
@@ -350,7 +349,9 @@ def download_glove_model(
             os.remove(zip_path)
 
     # Check disk space before download
-    required_space = GLOVE_ZIP_SIZE + expected_txt_size + 200_000_000
+    required_space = (
+        settings.GloVe.ZIP_SIZE + expected_txt_size + settings.GloVe.BUFFER
+    )
     free_space = shutil.disk_usage(data_dir).free
     if free_space < required_space:
         logger.warning(
@@ -363,15 +364,15 @@ def download_glove_model(
     # Download full zip archive
     logger.info(f"Downloading GloVe {version} (full archive: glove.6B.zip)...")
     logger.info(
-        f"This file is ~{GLOVE_ZIP_SIZE / 1024**2:.0f} MB compressed, "
-        "contains all 4 vector sizes."
+        f"This file is ~{settings.GloVe.ZIP_SIZE / 1024**2:.0f} "
+        "MB compressed, contains all 4 vector sizes."
     )
 
     try:
-        gdown.download(GLOVE_URL, zip_path, quiet=False)
+        gdown.download(settings.GloVe.URL, zip_path, quiet=False)
     except Exception as e:
         logger.error(f"\nDownload failed: {e}")
-        logger.info(f"Download manually: {GLOVE_URL}")
+        logger.info(f"Download manually: {settings.GloVe.URL}")
         logger.info(f"Save as: {zip_path}")
         return None
 
@@ -383,9 +384,9 @@ def download_glove_model(
     zip_size = os.path.getsize(zip_path)
     logger.info(f"Downloaded zip size: {zip_size / 1024**3:.2f} GB")
 
-    if not verify_file_size(zip_path, GLOVE_ZIP_SIZE, strict=False):
+    if not verify_file_size(zip_path, settings.GloVe.ZIP_SIZE, strict=False):
         logger.warning(
-            f"Zip size mismatch: expected {GLOVE_ZIP_SIZE} bytes, "
+            f"Zip size mismatch: expected {settings.GloVe.ZIP_SIZE} bytes, "
             f"got {zip_size} bytes, proceeding anyway"
         )
 
@@ -427,7 +428,7 @@ def extract_glove_single_file(
         zip_path: str, version: str, data_dir: str
 ) -> bool:
     """Extract a single GloVe .txt file from the zip archive."""
-    txt_filename = f"glove.{version}.txt"
+    txt_filename = settings.GloVe.TXT_PATTERN.format(version=version)
 
     try:
         with zipfile.ZipFile(zip_path, 'r') as zf:
@@ -449,7 +450,9 @@ def extract_glove_single_file(
         return False
 
 
-def download_analogy_test_set(data_dir: str = "data") -> Optional[str]:
+def download_analogy_test_set(
+        data_dir: str = str(settings.DATA_DIR)
+) -> Optional[str]:
     """
     Download Google Analogy Test Set (questions-words.txt).
     Contains 19,544 analogy questions (8,869 semantic + 10,675 syntactic).
@@ -457,7 +460,7 @@ def download_analogy_test_set(data_dir: str = "data") -> Optional[str]:
     (Efficient Estimation of Word Representations...)
     """
     os.makedirs(data_dir, exist_ok=True)
-    dest = os.path.join(data_dir, QUESTIONS_FILE)
+    dest = os.path.join(data_dir, settings.AnalogyTestSet.TXT_NAME)
 
     if os.path.exists(dest) and os.path.getsize(dest) > 0:
         logger.info(f"Analogy test set already exists: {dest}")
@@ -468,10 +471,10 @@ def download_analogy_test_set(data_dir: str = "data") -> Optional[str]:
     logger.info("Contains 19,544 questions (semantic + syntactic)")
 
     try:
-        gdown.download(QUESTIONS_URL, dest, quiet=False)
+        gdown.download(settings.AnalogyTestSet.URL, dest, quiet=False)
         logger.info(f"\nDownload complete: {dest}")
 
-        if os.path.getsize(dest) < 500_000:
+        if os.path.getsize(dest) < settings.AnalogyTestSet.MIN_SIZE:
             logger.warning(
                 "Warning: file size is small "
                 f"({os.path.getsize(dest):,} bytes)"
@@ -481,6 +484,6 @@ def download_analogy_test_set(data_dir: str = "data") -> Optional[str]:
         return dest
     except Exception as e:
         logger.error(f"Download failed: {e}")
-        logger.info(f"Try manual download: {QUESTIONS_URL}")
+        logger.info(f"Try manual download: {settings.AnalogyTestSet.URL}")
         logger.info(f"Save as: {dest}")
         return None

@@ -8,20 +8,8 @@ from typing import Dict, List, Tuple, Optional
 
 from gensim.models import KeyedVectors
 
+from src.core.config import settings
 from src.data.data_extraction import get_analogy_solution
-
-# Classification of sections based on the categories
-# defined in the original paper.
-# These sets are used to separate semantic and syntactic accuracy.
-SEMANTIC_SECTIONS = {
-    'capital-common-countries', 'currency',
-    'city-in-state', 'family', 'gram6-nationality-adjective'
-}
-SYNTACTIC_SECTIONS = {
-    'gram1-adjective-to-adverb', 'gram2-opposite', 'gram3-comparative',
-    'gram4-superlative', 'gram5-present-participle', 'gram7-past-tense',
-    'gram8-plural', 'gram9-plural-verbs'
-}
 
 
 def parse_questions_file(
@@ -150,10 +138,10 @@ def evaluate_model_raw(
             section_results.append((section_name, correct, total, acc))
 
             # Classify section based on its name
-            if section_name in SEMANTIC_SECTIONS:
+            if section_name in settings.AnalogyTestSet.SEMANTIC_SECTIONS:
                 semantic_correct += correct
                 semantic_total += total
-            elif section_name in SYNTACTIC_SECTIONS:
+            elif section_name in settings.AnalogyTestSet.SYNTACTIC_SECTIONS:
                 syntactic_correct += correct
                 syntactic_total += total
             # Sections not listed are ignored in aggregate stats

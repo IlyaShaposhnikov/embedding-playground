@@ -35,10 +35,7 @@ def evaluate_model(
     results = evaluate_model_raw(model, test_file)
 
     if results is None:
-        if model is None:
-            print("Load a model first.")
-        else:
-            print(f"Test file not found: {test_file}")
+        print("Evaluation failed: check model and test file.")
         return
 
     formatted_output = format_evaluation_results(results, model_name)

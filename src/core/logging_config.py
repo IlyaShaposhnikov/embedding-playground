@@ -1,5 +1,5 @@
 """
-Logging configuration module for Embedding Visualizer.
+Logging configuration module
 
 This module provides centralized logging setup for the entire application,
 separating user-facing interface messages (on console)

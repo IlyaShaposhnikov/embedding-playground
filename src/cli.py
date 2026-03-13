@@ -11,6 +11,7 @@ from typing import Optional
 from gensim.models import KeyedVectors
 
 from src.core.config import settings
+from src.core.model_manager import ModelManager
 from src.download import download_analogy_test_set
 from src.evaluate import evaluate_model
 from src.models import model_info
@@ -21,36 +22,60 @@ logger = logging.getLogger(__name__)
 
 
 def interactive_shell(
-    w2v_model: Optional[KeyedVectors],
-    glove_model: Optional[KeyedVectors]
+    model_manager: ModelManager
 ) -> None:
     """
     Run interactive command-line interface.
-    User can switch between models and execute queries.
+    Models are loaded lazily via model_manager on first use.
     """
-    current_model = None
+    current_model_instance: Optional[KeyedVectors] = None
     model_name = "None"
+    # Track preference without loading
+    preferred_model: Optional[str] = None
 
-    # Auto-select first available model for immediate usability
-    if w2v_model is not None:
-        current_model = w2v_model
+    # Check availability without loading
+    available = model_manager.get_available_models()
+    if available["word2vec"]:
+        preferred_model = "word2vec"
         model_name = "Word2Vec (GoogleNews)"
-    elif glove_model is not None:
-        current_model = glove_model
+    elif available["glove"]:
+        preferred_model = "glove"
         model_name = "GloVe (6B.100d)"
 
-    if current_model is None:
+    if preferred_model is None:
         print("\nNO MODELS LOADED!")
-        print("To use this tool, first download models:")
-        print("- Word2Vec: run download_word2vec_model()")
-        print("- GloVe: run download_glove_model()")
+        print("To use this tool, ensure models are downloaded")
         print("\nType 'exit' to quit.\n")
     else:
-        print(f"\nActive model: {model_name}")
+        print(f"\nPreferred model: {model_name} (loads on first use)")
         print(
             "Type 'demo' to run demonstration queries, "
             "'help' for commands, 'exit' to quit.\n"
         )
+
+    def _ensure_model_loaded() -> bool:
+        """
+        Load preferred model if not already loaded.
+        Returns True if model is ready, False otherwise.
+        """
+        nonlocal current_model_instance, model_name
+
+        if current_model_instance is not None:
+            return True
+
+        if preferred_model == "word2vec":
+            current_model_instance = model_manager.get_word2vec_model()
+            if current_model_instance:
+                model_name = "Word2Vec (GoogleNews)"
+                return True
+        elif preferred_model == "glove":
+            current_model_instance = model_manager.get_glove_model()
+            if current_model_instance:
+                model_name = "GloVe (6B.100d)"
+                return True
+
+        print("No model available. Please download models first.")
+        return False
 
     while True:
         try:
@@ -64,39 +89,44 @@ def interactive_shell(
                 _show_help()
 
             elif cmd == "demo":
-                _run_demo(w2v_model, glove_model)
+                _run_demo(model_manager)
 
             elif cmd == "model":
-                _show_model_status(current_model, model_name)
+                _show_model_status(current_model_instance, model_name)
 
             elif cmd.startswith("use "):
                 # Switch model: use word2vec | use glove
                 _, target = cmd.split(maxsplit=1)
 
-                available_models = []
-                if w2v_model is not None:
-                    available_models.append("word2vec")
-                if glove_model is not None:
-                    available_models.append("glove")
+                available = model_manager.get_available_models()
+                available_models = [k for k, v in available.items() if v]
 
-                if target == "word2vec" and w2v_model is not None:
-                    current_model = w2v_model
-                    model_name = "Word2Vec (GoogleNews)"
-                    print(f"Switched to {model_name}")
-                elif target == "glove" and glove_model is not None:
-                    current_model = glove_model
-                    model_name = "GloVe (6B.100d)"
-                    print(f"Switched to {model_name}")
+                if target == "word2vec" and available["word2vec"]:
+                    # Load on demand when switching
+                    model = model_manager.get_word2vec_model()
+                    if model:
+                        preferred_model = "word2vec"
+                        current_model_instance = model
+                        model_name = "Word2Vec (GoogleNews)"
+                        print(f"Switched to {model_name}")
+                    else:
+                        print(f"Failed to load {target}.")
+                elif target == "glove" and available["glove"]:
+                    # Load on demand when switching
+                    model = model_manager.get_glove_model()
+                    if model:
+                        preferred_model = "glove"
+                        current_model_instance = model
+                        model_name = "GloVe (6B.100d)"
+                        print(f"Switched to {model_name}")
+                    else:
+                        print(f"Failed to load {target}.")
                 else:
                     print(f"Model '{target}' not available.")
                     if available_models:
-                        print(
-                            f"Available models: {', '.join(available_models)}"
-                        )
+                        print(f"Available: {', '.join(available_models)}")
                     else:
-                        print(
-                            "No models loaded. Run download scripts first."
-                        )
+                        print("No models found. Download first.")
 
             elif cmd.startswith("nn "):
                 # Nearest neighbors: nn king [5]
@@ -125,11 +155,12 @@ def interactive_shell(
                         "Please use an integer (e.g., 5)."
                     )
                     continue
-                if current_model is None:
-                    print("No model loaded. Use 'use <model>' first.")
+                if not _ensure_model_loaded():
+                    continue
                 else:
                     nearest_neighbors(
-                        word, current_model, topn=topn, model_name=model_name
+                        word, current_model_instance,
+                        topn=topn, model_name=model_name
                     )
 
             elif cmd.startswith("ana "):
@@ -170,8 +201,8 @@ def interactive_shell(
                     continue
 
                 # Execute analogy query if model is loaded
-                if current_model is None:
-                    print("No model loaded. Use 'use <model>' first.")
+                if not _ensure_model_loaded():
+                    continue
                 else:
                     # Generate save path only if visualization is requested
                     save_path = None
@@ -181,7 +212,7 @@ def interactive_shell(
                         )
 
                     find_analogies(
-                        w1, w2, w3, current_model, topn=topn,
+                        w1, w2, w3, current_model_instance, topn=topn,
                         model_name=model_name,
                         visualize=visualize,
                         method=method,
@@ -232,8 +263,8 @@ def interactive_shell(
                     continue
 
                 # Execute visualization if model is loaded
-                if current_model is None:
-                    print("No model loaded. Use 'use <model>' first.")
+                if not _ensure_model_loaded():
+                    continue
                 else:
                     # Generate save path for visualization
                     save_path = _generate_viz_save_path(
@@ -247,7 +278,7 @@ def interactive_shell(
                     )
                     visualize_word_clusters(
                         words,
-                        current_model,
+                        current_model_instance,
                         topn=topn,
                         method=method,
                         model_name=model_name,
@@ -256,12 +287,14 @@ def interactive_shell(
                     print(f"Saved to: {save_path.as_posix()}")
 
             elif cmd == "eval":
-                if current_model is None:
-                    print("No model loaded. Use 'use <model>' first.")
+                if not _ensure_model_loaded():
+                    continue
                 else:
                     test_file = download_analogy_test_set()
                     if test_file:
-                        evaluate_model(current_model, test_file, model_name)
+                        evaluate_model(
+                            current_model_instance, test_file, model_name
+                        )
 
             elif cmd == "":
                 continue
@@ -280,7 +313,7 @@ def interactive_shell(
 
 
 def _parse_topn(
-    args: list,
+    args: list[str],
     default: int,
     max_limit: int,
     cmd_name: str
@@ -317,7 +350,9 @@ def _parse_topn(
     return default
 
 
-def _parse_method(args: list, default_method: str) -> tuple[str, list]:
+def _parse_method(
+        args: list[str], default_method: str
+) -> tuple[str, list[str]]:
     """
     Parses the visualization method ('pca' or 'tsne') from arguments.
 
@@ -337,7 +372,7 @@ def _parse_method(args: list, default_method: str) -> tuple[str, list]:
 
 
 def _generate_viz_save_path(
-    base_name_parts: list,
+    base_name_parts: list[str],
     model_name: str,
     method: str,
     topn: int,
@@ -411,16 +446,19 @@ def _show_model_status(
 
 
 def _run_demo(
-        w2v_model: Optional[KeyedVectors],
-        glove_model: Optional[KeyedVectors]
+        model_manager: ModelManager
 ) -> None:
     """Run demonstration queries for available models."""
     print("\n" + "=" * 60)
     print("DEMONSTRATION: Nearest Neighbors, Analogies & Clusters")
     print("=" * 60)
 
+    # Demo intentionally loads both models to showcase functionality
+    w2v_model = model_manager.get_word2vec_model()
+    glove_model = model_manager.get_glove_model()
+
     # Word2Vec demo
-    if w2v_model is not None:
+    if w2v_model:
         print("\n[Word2Vec Demo]")
         print("-" * 60)
         model_info(w2v_model, "Word2Vec (GoogleNews)")
@@ -452,7 +490,7 @@ def _run_demo(
         print("\nWord2Vec model not available for demo.")
 
     # GloVe demo
-    if glove_model is not None:
+    if glove_model:
         print("\n[GloVe Demo]")
         print("-" * 60)
         model_info(glove_model, "GloVe (6B.100d)")
